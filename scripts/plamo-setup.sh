@@ -65,6 +65,11 @@ mv -f "$PLIST_DST.tmp" "$PLIST_DST"
 launchctl bootout "gui/$(id -u)/$LABEL" >/dev/null 2>&1 || true
 launchctl bootstrap "gui/$(id -u)" "$PLIST_DST"
 echo "launchd service started: $LABEL"
-for _ in $(seq 1 60); do curl -fsS --max-time 2 "http://127.0.0.1:$PORT/health" >/dev/null && { echo 'llama-server is ready'; exit 0; }; sleep 1; done
-echo "llama-server did not become ready; see $LOG_PATH" >&2
-exit 1
+HEALTH="http://127.0.0.1:$PORT/health"
+for _ in $(seq 1 60); do curl -fsS --max-time 2 "$HEALTH" >/dev/null && break; sleep 1; done
+curl -fsS --max-time 2 "$HEALTH" >/dev/null || { echo "llama-server did not become ready; see $LOG_PATH" >&2; exit 1; }
+prompt='<|plamo:tag|>dataset<|plamo:msg|>translation<|plamo:tag|>input<|plamo:key|>lang<|plamo:val|>en<|plamo:msg|>Hello, world.<|plamo:tag|>output<|plamo:key|>lang<|plamo:val|>ja<|plamo:key|>form<|plamo:val|>polite<|plamo:msg|>'
+body="$(python3 -I -c 'import json,sys; print(json.dumps({"prompt":sys.argv[1],"temperature":0,"max_tokens":64,"stop":["<|plamo:tag|>","<|plamo:bos|>"]}))' "$prompt")"
+translated="$(curl -fsS --max-time 30 -H 'content-type: application/json' -d "$body" "http://127.0.0.1:$PORT/v1/completions" | python3 -I -c 'import json,sys; print(json.load(sys.stdin)["choices"][0]["text"].strip())')" || { echo 'translation smoke test failed' >&2; exit 1; }
+[[ -n "$translated" ]] || { echo 'translation smoke test returned an empty result' >&2; exit 1; }
+echo "llama-server translation check passed: $translated"

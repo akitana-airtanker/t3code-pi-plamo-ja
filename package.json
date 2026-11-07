@@ -1,0 +1,16 @@
+{
+  "name": "pi-plamo-ja",
+  "version": "1.0.0",
+  "private": false,
+  "description": "Local Japanese translation display for Pi using PLaMo 3 Translate",
+  "keywords": ["pi-package", "pi", "extension", "translation", "plamo"],
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/akitana-airtanker/pi-plamo-ja.git" },
+  "engines": { "node": ">=20" },
+  "type": "module",
+  "files": ["extensions", "scripts", "launchd", "README.md", "LICENSE", "NOTICE"],
+  "scripts": { "test": "node --test tests/plamo_ja.test.ts && bash tests/plamo_setup_test.sh" },
+  "peerDependencies": { "@earendil-works/pi-coding-agent": "*" },
+  "devDependencies": { "@earendil-works/pi-coding-agent": "^1.4.0", "@types/node": "^22.0.0", "typescript": "^5.0.0" },
+  "pi": { "extensions": ["./extensions/plamo-ja.ts"] }
+}

@@ -1,0 +1,3 @@
+## Acknowledgment
+
+The idea for this extension was inspired by [kikuchy's plamo-ja-mod](https://github.com/kikuchy/plamo-ja-mod), a Claude Code mod licensed under MIT. The PFML3 prompt format was informed by that project and the PLaMo 3 Translate model card. No source code from plamo-ja-mod is included in this repository.

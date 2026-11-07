@@ -10,5 +10,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - run: npm ci
+      - run: npm run typecheck
       - run: node --test tests/plamo_ja.test.ts
       - run: bash tests/plamo_setup_test.sh

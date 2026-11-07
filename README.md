@@ -4,7 +4,7 @@ A Pi extension that displays Japanese translations of English replies using a lo
 
 ## できること
 
-Pi の Claude 系モデルなどが英語で生成した返答を、ローカルの PLaMo 3 Translate で日本語表示します。`/plamo on` で有効化すると、内容は英語のまま生成され、画面上の日本語と併せて会話履歴には英語が残ります。コードブロックは訳しません。質問ダイアログは `ask_user_question` の `tool_call` 引数を訳します。
+Pi（T3 Code から使う場合）で、Claude が英語で生成した返答を、ローカルの PLaMo 3 Translate で日本語表示します。`/plamo on` で有効化すると、内容は英語のまま生成され、画面上の日本語と併せて会話履歴には英語が残ります。コードブロックは訳しません。質問ダイアログは `ask_user_question` の `tool_call` 引数を訳します。
 
 T3 Code では返答本文が日本語に置き換わって見えます。質問・選択肢も可能な範囲で日本語になります。翻訳に失敗した文章は英語表示に戻します。
 
@@ -14,7 +14,7 @@ T3 Code では返答本文が日本語に置き換わって見えます。質問
 
 ## 導入
 
-Pi 1.4.0 以降、Node.js 20 以降を想定します。
+Pi 1.4.0 以降、Node.js 22.19 以降を想定します。
 
 ```sh
 pi install git:github.com/akitana-airtanker/pi-plamo-ja
@@ -50,7 +50,8 @@ bash /path/to/pi-plamo-ja/scripts/plamo-setup.sh --check --model 2b
 ## 制限
 
 - T3 Code の表示は、Pi の `text_end` イベントをその場で書き換える文書化されていない挙動に依存します。Pi や中継側の更新で表示されなくなる可能性があります。
-- この環境で確認した版は Pi 1.5.0、pi-claude-bridge 0.9.3、T3 Code (Beta) 0.1.7 です（T3 Code の版はアプリの `Info.plist`）。Pi 1.4.0 での実行確認はしていません。
+- 確認した組み合わせは、Pi 1.4.0 と 1.5.0、pi-claude-bridge 0.9.3（Claude の呼び出し）、T3 Code (Beta) 0.1.7 です。表示は T3 Code の画面と、T3 Code と同じ RPC の出力で確かめました。
+- Pi 自身のターミナル画面（TUI）と、pi-claude-bridge 以外のプロバイダでは確かめていません。
 - 0.8B は誤訳があります。機械翻訳なので重要な判断には使わないでください。翻訳品質の優位性は主張しません（評価は別途進行中）。
 - 長い応答は翻訳に時間がかかります。サーバ停止時は英語表示になります。
 

@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { buildPrompt, configFromEnv, splitMarkdown, translateQuestions, translationSection, translateParts } from "./plamo-ja-core.ts";
+import { buildPrompt, configFromEnv, splitMarkdown, translateQuestions, translationSection, translateReply } from "./plamo-ja-core.ts";
 
 const START = "launchctl kickstart -k gui/$(id -u)/io.github.akitana-airtanker.pi-plamo-ja (log: ~/Library/Logs/pi-plamo-ja.log)";
 
@@ -17,13 +17,16 @@ export default function (pi: ExtensionAPI) {
     const streamEvent = event.assistantMessageEvent;
     if (!enabled || event.message?.role !== "assistant" || streamEvent?.type !== "text_end") return;
     // T3 Code currently forwards the mutated assistantMessageEvent after awaiting handlers; this is undocumented and is intentionally limited to text_end, not message_end, so both stored histories remain English.
-    try {
-      streamEvent.content = await translateParts(splitMarkdown(streamEvent.content), translate);
-    } catch (error) {
-      if (!notified) {
-        notified = true;
-        ctx.ui.notify(`PLaMo 翻訳に失敗しました。英語のまま表示します: ${String(error)}`, "warning");
-      }
+    // translateReply never throws: a part that times out is split and retried, and a piece that still fails stays English.
+    const english = streamEvent.content;
+    const result = await translateReply(splitMarkdown(english), translate);
+    streamEvent.content = result.text;
+    if (result.untranslatedPieces > 0 && !notified) {
+      notified = true;
+      const all = result.text === english;
+      ctx.ui.notify(all
+        ? `PLaMo 翻訳に失敗しました。英語のまま表示します（サーバ: ${config.endpoint}）`
+        : `PLaMo 翻訳が一部終わらなかったため、${result.untranslatedPieces} か所を英語のまま表示します`, "warning");
     }
   });
   // Questions to the user are tool arguments, not reply text, so text_end never sees them.
@@ -43,10 +46,14 @@ export default function (pi: ExtensionAPI) {
         // Rebuild the next prompt through before_agent_start; do not rewrite prompt-captured systemPrompt.
         if (enabled) {
           try {
-            const response = await fetch(`${new URL(config.endpoint).origin}/health`, { signal: AbortSignal.timeout(3000) });
+            const response = await fetch(`${new URL(config.endpoint).origin}/health`, { signal: AbortSignal.timeout(10_000) });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          } catch {
-            ctx.ui.notify(`PLaMo サーバに接続できません。翻訳は有効のままです。起動: ${START}`, "warning");
+          } catch (error) {
+            // A busy server answers late; only a refused or failed connection means it is not running.
+            const busy = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+            ctx.ui.notify(busy
+              ? "PLaMo 日本語表示: 有効（サーバの応答が遅れています。混雑しているときは翻訳に時間がかかります）"
+              : `PLaMo サーバに接続できません。翻訳は有効のままです。起動: ${START}`, "warning");
             return;
           }
         }
@@ -66,7 +73,7 @@ export default function (pi: ExtensionAPI) {
         prompt: buildPrompt(text, config.form), temperature: 0, max_tokens: 8192,
         stop: ["<|plamo:tag|>", "<|plamo:bos|>"],
       }),
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(config.timeoutMs),
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data: unknown = await response.json();

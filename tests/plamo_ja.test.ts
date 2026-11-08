@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildPrompt, configFromEnv, escapePfmlText, HEADER_MAX, LABEL_MAX, splitMarkdown, translateParts, translateQuestions, type Question } from "../extensions/plamo-ja-core.ts";
+import { buildPrompt, configFromEnv, escapePfmlText, HEADER_MAX, LABEL_MAX, PIECE_MAX, splitMarkdown, splitProse, translateParts, translateReply, translateQuestions, type Question } from "../extensions/plamo-ja-core.ts";
 
 function generated(seed: number): string {
   let state = seed;
@@ -43,8 +43,52 @@ test("a translator that trims its output cannot move a fence off its line or dro
   }
 });
 
-test("an empty translation is a failure, so the caller keeps the English text", async () => {
-  await assert.rejects(translateParts([{ kind: "translate", text: "Hello." }], async () => "  "));
+test("an empty translation is a failure, so the text stays English", async () => {
+  const r = await translateReply([{ kind: "translate", text: "Hello." }], async () => "  ");
+  assert.deepEqual(r, { text: "Hello.", splitParts: 1, untranslatedPieces: 1 });
+});
+
+test("splitProse pieces join back to the input and only an unbreakable line exceeds the limit", () => {
+  for (let seed = 1; seed <= 250; seed++) {
+    const source = generated(seed).repeat(1 + (seed % 30));
+    const pieces = splitProse(source);
+    assert.equal(pieces.join(""), source);
+    for (const piece of pieces) assert.ok(piece.length <= PIECE_MAX || !piece.includes("\n"), "a long piece must be a single line");
+  }
+});
+
+test("a part whose one-request translation fails falls back to pieces, and only failed pieces stay English", async () => {
+  for (let seed = 1; seed <= 250; seed++) {
+    const source = generated(seed).repeat(1 + (seed % 20));
+    const parts = splitMarkdown(source);
+    const limit = 40 + (seed % 7) * 60; // a "timeout" for long requests
+    const failEvery = 2 + (seed % 5); // and some pieces fail on their own
+    let calls = 0;
+    const translate = async (t: string) => {
+      calls++;
+      if (t.length > limit || calls % failEvery === 0) throw new Error("timeout");
+      return `<${t}>`;
+    };
+    const r = await translateReply(parts, translate);
+    // Removing the markers gives the source back: every piece is either its translation or the original.
+    assert.equal(r.text.replace(/[<>]/g, ""), source.replace(/[<>]/g, ""));
+    const fences = parts.filter((p) => p.kind === "keep").map((p) => p.text);
+    let at = 0;
+    for (const f of fences) {
+      const i = r.text.indexOf(f, at);
+      assert.ok(i >= 0, "fences survive in order");
+      at = i + f.length;
+    }
+    assert.ok(r.untranslatedPieces === 0 || r.splitParts > 0);
+  }
+});
+
+test("when nothing fails, nothing is split", async () => {
+  for (let seed = 1; seed <= 100; seed++) {
+    const r = await translateReply(splitMarkdown(generated(seed)), async (t) => `[${t}]`);
+    assert.equal(r.splitParts, 0);
+    assert.equal(r.untranslatedPieces, 0);
+  }
 });
 
 function questions(seed: number): Question[] {
@@ -98,8 +142,8 @@ test("PFML3 prompt escapes embedded control prefix and configuration defaults ar
   const value = "A <|plamo:msg|> B";
   assert.equal(escapePfmlText(value), "A <|plamo :msg|> B");
   assert.ok(buildPrompt(value, "polite").includes("A <|plamo :msg|> B"));
-  assert.deepEqual(configFromEnv({}), { endpoint: "http://127.0.0.1:18080/v1", form: "polite", enabled: false });
-  assert.deepEqual(configFromEnv({ PLAMO_JA_ENDPOINT: "http://localhost:4///", PLAMO_JA_MODEL: "m", PLAMO_JA_FORM: "plain", PLAMO_JA: "1" }), {
-    endpoint: "http://localhost:4", model: "m", form: "plain", enabled: true,
+  assert.deepEqual(configFromEnv({}), { endpoint: "http://127.0.0.1:18080/v1", form: "polite", enabled: false, timeoutMs: 90_000 });
+  assert.deepEqual(configFromEnv({ PLAMO_JA_ENDPOINT: "http://localhost:4///", PLAMO_JA_MODEL: "m", PLAMO_JA_FORM: "plain", PLAMO_JA: "1", PLAMO_JA_TIMEOUT_MS: "5000" }), {
+    endpoint: "http://localhost:4", model: "m", form: "plain", enabled: true, timeoutMs: 5000,
   });
 });

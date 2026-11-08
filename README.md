@@ -44,6 +44,7 @@ bash /path/to/pi-plamo-ja/scripts/plamo-setup.sh --check --model 2b
 | `PLAMO_JA_ENDPOINT` | `http://127.0.0.1:18080/v1` | llama.cpp OpenAI-compatible endpoint |
 | `PLAMO_JA_MODEL` | 未指定 | リクエストの model 値 |
 | `PLAMO_JA_FORM` | `polite` | `plain` または `polite` |
+| `PLAMO_JA_TIMEOUT_MS` | `90000` | 翻訳 1 回あたりの制限時間（ミリ秒） |
 
 `/plamo on` は翻訳を有効にし、サーバの応答も確認します。`/plamo off` は無効化、`/plamo status` は状態と endpoint を表示します。引数なしも status です。
 
@@ -53,7 +54,8 @@ bash /path/to/pi-plamo-ja/scripts/plamo-setup.sh --check --model 2b
 - 確認した組み合わせは、Pi 1.4.0 と 1.5.0、pi-claude-bridge 0.9.3（Claude の呼び出し）、T3 Code (Beta) 0.1.7 です。表示は T3 Code の画面と、T3 Code と同じ RPC の出力で確かめました。
 - Pi 自身のターミナル画面（TUI）と、pi-claude-bridge 以外のプロバイダでは確かめていません。
 - 0.8B は誤訳があります。機械翻訳なので重要な判断には使わないでください。翻訳品質の優位性は主張しません（評価は別途進行中）。
-- 長い応答は翻訳に時間がかかります。サーバ停止時は英語表示になります。
+- コードブロックのあいだの文は、まず 1 回の依頼でまとめて訳します（文脈を保つため）。制限時間を超えるか失敗したときは、段落ごと（600 字を超える段落は行ごと）に分けて 4 件ずつ訳し直します。それでも訳せなかった部分だけ英語のまま表示します。
+- 翻訳が終わるまで、Pi は次の処理を待ちます。長い応答やサーバが混んでいるときは、表示までに時間がかかります。サーバが止まっているときは英語のまま表示します。
 
 ## 謝辞
 

@@ -1,4 +1,4 @@
-# pi-plamo-ja
+# t3code-pi-plamo-ja
 
 A Pi extension that displays Japanese translations of English replies using a local PLaMo 3 Translate server.
 
@@ -17,8 +17,8 @@ T3 Code では返答本文が日本語に置き換わって見えます。質問
 Pi 1.4.0 以降、Node.js 22.19 以降を想定します。
 
 ```sh
-pi install git:github.com/akitana-airtanker/pi-plamo-ja
-bash ~/.pi/agent/git/github.com/akitana-airtanker/pi-plamo-ja/scripts/plamo-setup.sh --model 0.8b
+pi install git:github.com/akitana-airtanker/t3code-pi-plamo-ja
+bash ~/.pi/agent/git/github.com/akitana-airtanker/t3code-pi-plamo-ja/scripts/plamo-setup.sh --model 0.8b
 ```
 
 setup は llama.cpp/モデルを準備し、macOS では LaunchAgent を登録します。Pi の設定ファイルは変更しません。Pi の再起動後に `/plamo on` を実行してください。モデルの配布は行いません。HF からダウンロードし SHA-256 を検証します。
@@ -26,8 +26,8 @@ setup は llama.cpp/モデルを準備し、macOS では LaunchAgent を登録�
 Pi が git パッケージを保存する場所は環境や Pi の版で異なる場合があります。`pi list` で実際の保存先を確認し、そこにある `scripts/plamo-setup.sh` を実行してください。
 
 ```sh
-bash /path/to/pi-plamo-ja/scripts/plamo-setup.sh --model 2b
-bash /path/to/pi-plamo-ja/scripts/plamo-setup.sh --check --model 2b
+bash /path/to/t3code-pi-plamo-ja/scripts/plamo-setup.sh --model 2b
+bash /path/to/t3code-pi-plamo-ja/scripts/plamo-setup.sh --check --model 2b
 ```
 
 `--model 0.8b` が既定です。モデルは `~/models/plamo/` に保存されます。Linux ではサービス登録を行わず、setup が表示する `llama-server` 起動コマンドを実行してください。対象は macOS (Apple Silicon/Intel) と Linux (llama.cpp を利用者が用意する場合) です。Windows およびその他の環境は対象外です。

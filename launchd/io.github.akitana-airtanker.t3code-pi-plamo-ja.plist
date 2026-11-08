@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>Label</key><string>io.github.akitana-airtanker.pi-plamo-ja</string>
+  <key>Label</key><string>io.github.akitana-airtanker.t3code-pi-plamo-ja</string>
   <key>ProgramArguments</key>
   <array>
     <string>__LLAMA_SERVER__</string><string>-m</string><string>__MODEL_PATH__</string>

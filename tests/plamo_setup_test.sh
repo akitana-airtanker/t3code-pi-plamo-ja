@@ -24,7 +24,7 @@ cmp -s "$home/models/plamo/plamo-3-translate-0.8b-Q4_K_M.gguf" "$tmp/model.gguf"
 cmp -s "$settings" <(printf '{"extensions":["another-extension"]}\n') || fail 'setup modified settings.json'
 run --model 2b >/dev/null || fail '2B model selection failed'
 [ -f "$home/models/plamo/plamo-3-translate-2b-Q4_K_M.gguf" ] || fail '2B model path incorrect'
-sed -e 's|__LLAMA_SERVER__|/usr/bin/llama-server|g' -e 's|__MODEL_PATH__|/tmp/model.gguf|g' -e 's|__LOG_PATH__|/tmp/plamo.log|g' "$root/launchd/io.github.akitana-airtanker.pi-plamo-ja.plist" > "$tmp/rendered.plist"
+sed -e 's|__LLAMA_SERVER__|/usr/bin/llama-server|g' -e 's|__MODEL_PATH__|/tmp/model.gguf|g' -e 's|__LOG_PATH__|/tmp/plamo.log|g' "$root/launchd/io.github.akitana-airtanker.t3code-pi-plamo-ja.plist" > "$tmp/rendered.plist"
 plutil -lint "$tmp/rendered.plist" >/dev/null || fail 'rendered plist is invalid'
-! rg -q '/Users/[^/]+|dotfiles' "$root/launchd/io.github.akitana-airtanker.pi-plamo-ja.plist" || fail 'plist has a personal path'
+! rg -q '/Users/[^/]+|dotfiles' "$root/launchd/io.github.akitana-airtanker.t3code-pi-plamo-ja.plist" || fail 'plist has a personal path'
 printf 'ok\n'

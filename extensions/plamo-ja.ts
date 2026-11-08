@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { addRun, buildPrompt, configFromEnv, emptyRun, restoreEnabled, runNotice, splitMarkdown, STATE_ENTRY, translateQuestions, translationSection, translateReply } from "./plamo-ja-core.ts";
 
-const START = "launchctl kickstart -k gui/$(id -u)/io.github.akitana-airtanker.pi-plamo-ja (log: ~/Library/Logs/pi-plamo-ja.log)";
+const START = "launchctl kickstart -k gui/$(id -u)/io.github.akitana-airtanker.t3code-pi-plamo-ja (log: ~/Library/Logs/t3code-pi-plamo-ja.log)";
 
 export default function (pi: ExtensionAPI) {
   const config = configFromEnv(process.env);

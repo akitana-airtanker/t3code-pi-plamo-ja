@@ -2,7 +2,7 @@
 # Install the selected PLaMo GGUF and, on macOS, configure a per-user launchd service.
 set -euo pipefail
 
-LABEL="io.github.akitana-airtanker.pi-plamo-ja"
+LABEL="io.github.akitana-airtanker.t3code-pi-plamo-ja"
 MODEL_DIR="${HOME}/models/plamo"
 PORT="${PLAMO_JA_PORT:-18080}"
 SKIP_SERVICE="${PLAMO_SKIP_SERVICE:-0}"
@@ -57,7 +57,7 @@ case "$(uname -m)" in arm64|x86_64) ;; *) echo 'Only Apple Silicon and Intel mac
 LLAMA_SERVER="$(command -v llama-server)"
 PLIST_SRC="$(cd "$(dirname "$0")/.." && pwd -P)/launchd/$LABEL.plist"
 PLIST_DST="$HOME/Library/LaunchAgents/$LABEL.plist"
-LOG_PATH="$HOME/Library/Logs/pi-plamo-ja.log"
+LOG_PATH="$HOME/Library/Logs/t3code-pi-plamo-ja.log"
 mkdir -p "$(dirname "$PLIST_DST")" "$(dirname "$LOG_PATH")"
 sed -e "s|__LLAMA_SERVER__|$LLAMA_SERVER|g" -e "s|__MODEL_PATH__|$MODEL_PATH|g" -e "s|__LOG_PATH__|$LOG_PATH|g" "$PLIST_SRC" > "$PLIST_DST.tmp"
 plutil -lint "$PLIST_DST.tmp" >/dev/null

@@ -1,5 +1,5 @@
 {
-  "name": "pi-plamo-ja",
+  "name": "t3code-pi-plamo-ja",
   "version": "1.0.0",
   "private": false,
   "description": "Local Japanese translation display for Pi using PLaMo 3 Translate",
@@ -13,7 +13,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/akitana-airtanker/pi-plamo-ja.git"
+    "url": "git+https://github.com/akitana-airtanker/t3code-pi-plamo-ja.git"
   },
   "engines": {
     "node": ">=22.19"

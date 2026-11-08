@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildPrompt, configFromEnv, escapePfmlText, HEADER_MAX, LABEL_MAX, PIECE_MAX, splitMarkdown, splitProse, translateParts, translateReply, translateQuestions, type Question } from "../extensions/plamo-ja-core.ts";
+import { addRun, buildPrompt, emptyRun, restoreEnabled, runNotice, STATE_ENTRY, configFromEnv, escapePfmlText, HEADER_MAX, LABEL_MAX, PIECE_MAX, splitMarkdown, splitProse, translateParts, translateReply, translateQuestions, type Question } from "../extensions/plamo-ja-core.ts";
 
 function generated(seed: number): string {
   let state = seed;
@@ -146,4 +146,32 @@ test("PFML3 prompt escapes embedded control prefix and configuration defaults ar
   assert.deepEqual(configFromEnv({ PLAMO_JA_ENDPOINT: "http://localhost:4///", PLAMO_JA_MODEL: "m", PLAMO_JA_FORM: "plain", PLAMO_JA: "1", PLAMO_JA_TIMEOUT_MS: "5000" }), {
     endpoint: "http://localhost:4", model: "m", form: "plain", enabled: true, timeoutMs: 5000,
   });
+});
+
+test("the latest saved switch on the current branch wins, and only this extension's entries count", () => {
+  const entry = (customType: string, data: unknown) => ({ type: "custom", customType, data });
+  assert.equal(restoreEnabled([]), undefined);
+  assert.equal(restoreEnabled([{ type: "message" }, entry("other", { enabled: true })]), undefined);
+  for (let seed = 1; seed <= 200; seed++) {
+    let state = seed;
+    const rand = (n: number) => { state = (state * 1664525 + 1013904223) >>> 0; return state % n; };
+    const entries: unknown[] = [];
+    let last: boolean | undefined;
+    for (let i = 0; i < 12; i++) {
+      const k = rand(4);
+      if (k === 0) { const v = rand(2) === 0; entries.push(entry(STATE_ENTRY, { enabled: v })); last = v; }
+      else if (k === 1) entries.push(entry("other", { enabled: rand(2) === 0 }));
+      else if (k === 2) entries.push(entry(STATE_ENTRY, { broken: true }));
+      else entries.push({ type: "message" });
+    }
+    assert.equal(restoreEnabled(entries), last);
+  }
+});
+
+test("a run notice reports what was translated, and what stayed English", () => {
+  assert.equal(runNotice(emptyRun()), "PLaMo 翻訳: 有効（この返答で訳した文はありません）");
+  let run = addRun(emptyRun(), { parts: 3, untranslatedPieces: 0, ms: 2100 });
+  assert.equal(runNotice(run), "PLaMo 翻訳: 有効（3か所を訳し、2.1秒）");
+  run = addRun(run, { parts: 2, untranslatedPieces: 1, ms: 900 });
+  assert.equal(runNotice(run), "PLaMo 翻訳: 有効（5か所を訳し、3.0秒。1か所は英語のまま）");
 });

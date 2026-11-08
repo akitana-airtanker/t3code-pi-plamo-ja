@@ -182,3 +182,41 @@ export async function translateReply(parts: Part[], translate: (text: string) =>
 export async function translateParts(parts: Part[], translate: (text: string) => Promise<string>): Promise<string> {
   return (await translateReply(parts, translate)).text;
 }
+
+/** customType of the session entry that records /plamo on|off. Pi keeps custom entries out of the model's context. */
+export const STATE_ENTRY = "plamo-ja-state";
+
+/** The switch saved last on the given branch, or undefined when this session never saved one. */
+export function restoreEnabled(entries: readonly unknown[]): boolean | undefined {
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const e = entries[i];
+    if (typeof e !== "object" || e === null) continue;
+    const { type, customType, data } = e as { type?: unknown; customType?: unknown; data?: unknown };
+    if (type !== "custom" || customType !== STATE_ENTRY || typeof data !== "object" || data === null) continue;
+    const enabled = (data as { enabled?: unknown }).enabled;
+    if (typeof enabled === "boolean") return enabled;
+  }
+  return undefined;
+}
+
+/** What one agent run translated, summed over its text blocks and question dialogs. */
+export interface RunStats {
+  parts: number;
+  untranslatedPieces: number;
+  ms: number;
+}
+
+export function emptyRun(): RunStats {
+  return { parts: 0, untranslatedPieces: 0, ms: 0 };
+}
+
+export function addRun(a: RunStats, b: RunStats): RunStats {
+  return { parts: a.parts + b.parts, untranslatedPieces: a.untranslatedPieces + b.untranslatedPieces, ms: a.ms + b.ms };
+}
+
+/** The line shown at the end of each run while translation is on. */
+export function runNotice(run: RunStats): string {
+  if (run.parts === 0) return "PLaMo 翻訳: 有効（この返答で訳した文はありません）";
+  const left = run.untranslatedPieces > 0 ? `。${run.untranslatedPieces}か所は英語のまま` : "";
+  return `PLaMo 翻訳: 有効（${run.parts}か所を訳し、${(run.ms / 1000).toFixed(1)}秒${left}）`;
+}

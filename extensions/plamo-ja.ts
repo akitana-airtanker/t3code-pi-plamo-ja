@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { buildPrompt, configFromEnv, splitMarkdown, translateQuestions, translationSection, translateReply } from "./plamo-ja-core.ts";
+import { addRun, buildPrompt, configFromEnv, emptyRun, restoreEnabled, runNotice, splitMarkdown, STATE_ENTRY, translateQuestions, translationSection, translateReply } from "./plamo-ja-core.ts";
 
 const START = "launchctl kickstart -k gui/$(id -u)/io.github.akitana-airtanker.pi-plamo-ja (log: ~/Library/Logs/pi-plamo-ja.log)";
 
@@ -7,6 +7,16 @@ export default function (pi: ExtensionAPI) {
   const config = configFromEnv(process.env);
   let enabled = config.enabled;
   let notified = false;
+  let run = emptyRun();
+  // The switch lives in the session so a restarted Pi process (a model change in T3 Code restarts it) keeps it.
+  pi.on("session_start", async (_event, ctx) => {
+    const saved = restoreEnabled(ctx.sessionManager.getBranch());
+    if (saved === undefined) return;
+    enabled = saved;
+    if (enabled) ctx.ui.notify("PLaMo 日本語表示: 有効（このスレッドの設定を引き継ぎました）", "info");
+  });
+  pi.on("agent_start", async () => { run = emptyRun(); });
+  pi.on("agent_end", async (_event, ctx) => { if (enabled) ctx.ui.notify(runNotice(run), "info"); });
   pi.on("before_agent_start", async (event) => {
     const options = event.systemPromptOptions;
     if (!options) return;
@@ -19,8 +29,15 @@ export default function (pi: ExtensionAPI) {
     // T3 Code currently forwards the mutated assistantMessageEvent after awaiting handlers; this is undocumented and is intentionally limited to text_end, not message_end, so both stored histories remain English.
     // translateReply never throws: a part that times out is split and retried, and a piece that still fails stays English.
     const english = streamEvent.content;
-    const result = await translateReply(splitMarkdown(english), translate);
+    const parts = splitMarkdown(english);
+    const started = performance.now();
+    const result = await translateReply(parts, translate);
     streamEvent.content = result.text;
+    run = addRun(run, {
+      parts: parts.filter((p) => p.kind === "translate" && p.text.trim() !== "").length,
+      untranslatedPieces: result.untranslatedPieces,
+      ms: performance.now() - started,
+    });
     if (result.untranslatedPieces > 0 && !notified) {
       notified = true;
       const all = result.text === english;
@@ -33,7 +50,10 @@ export default function (pi: ExtensionAPI) {
   // Pi documents mutating event.input in place as the way to change a call's arguments.
   pi.on("tool_call", async (event) => {
     if (!enabled || event.toolName !== "ask_user_question" || !Array.isArray(event.input?.questions)) return undefined;
-    event.input.questions = await translateQuestions(event.input.questions, translate);
+    const started = performance.now();
+    const questions = await translateQuestions(event.input.questions, translate);
+    event.input.questions = questions;
+    run = addRun(run, { parts: questions.length, untranslatedPieces: 0, ms: performance.now() - started });
     return undefined;
   });
   pi.registerCommand("plamo", {
@@ -43,6 +63,7 @@ export default function (pi: ExtensionAPI) {
       if (command === "on" || command === "off") {
         enabled = command === "on";
         if (!enabled) notified = false;
+        pi.appendEntry(STATE_ENTRY, { enabled });
         // Rebuild the next prompt through before_agent_start; do not rewrite prompt-captured systemPrompt.
         if (enabled) {
           try {

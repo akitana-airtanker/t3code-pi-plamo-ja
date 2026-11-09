@@ -1,0 +1,63 @@
+# pi-claude-bridge 0.9.3: provider.clearLanguageForSections
+#
+# Why: Claude Code adds "Always respond in <language>" from ~/.claude/settings.json
+# after the Pi prompt the bridge appends, so it outranks a Pi section that sets the
+# reply language (t3code-pi-plamo-ja's reply_language). With this patch, while a listed
+# section is in the Pi prompt, the provider path passes Claude Code `language: ""`,
+# which removes that block for that query only. Other threads and ~/.claude/settings.json
+# are unchanged.
+#
+# Enable (in ~/.pi/agent/claude-bridge.json):
+#   { "provider": { "clearLanguageForSections": ["reply_language"] } }
+#
+# Apply after `pi update` reinstalls the bridge (the patch is lost on reinstall):
+#   patch -d ~/.pi/agent/npm/node_modules/pi-claude-bridge -p1 < ~/dotfiles/pi/patches/pi-claude-bridge-clear-language.patch
+# Check: `patch --dry-run -R ...` succeeds when the patch is already applied.
+--- a/src/config.ts
++++ b/src/config.ts
+@@ -37,6 +37,11 @@
+ 		// Model ids (e.g. "claude-future-9") whose declared 1M context Claude Code
+ 		// does not actually serve; pins them to the bare id at 200K.
+ 		forceTwoHundredK?: string[];
++		// Names of Pi custom prompt sections (systemPromptOptions.sections) that set the reply
++		// language themselves. While any of them is in the prompt, the provider path passes
++		// Claude Code `language: ""`, which removes the "Always respond in ..." block that the
++		// user's ~/.claude/settings.json `language` would otherwise add after Pi's instructions.
++		clearLanguageForSections?: string[];
+ 	};
+ }
+ 
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -133,6 +133,21 @@
+ // MODELS is buildModels(getModels("anthropic")) — projection kept in models.js.
+ const MODELS = buildModels(getModels("anthropic"));
+ let providerSettings: NonNullable<Config["provider"]> = {};
++
++/** True when the projected prompt carries a non-empty section listed in
++ *  provider.clearLanguageForSections: in this capture or in a prompt it inherits, which
++ *  projectPromptCapture renders too (a sub-agent's override embeds its parent's prompt). */
++function sectionsClearLanguage(capture: PromptCapture | undefined): boolean {
++	const names = providerSettings.clearLanguageForSections ?? [];
++	if (!capture || names.length === 0) return false;
++	const seen = new Set<PromptCapture>();
++	const carries = (node: PromptCapture): boolean => {
++		if (seen.has(node)) return false;
++		seen.add(node);
++		return names.some((name) => Boolean(node.sections?.[name])) || node.inherited.some((edge) => carries(edge.parent));
++	};
++	return carries(capture);
++}
+ let longContextSettings: LongContextSettings = { plan: "pro", longContextExtraUsage: false };
+ 
+ function resolveModel(input: string) {
+@@ -2048,6 +2063,9 @@
+ 			...claudeCodeSettings(providerSettings),
+ 			claudeMdExcludes: CLAUDE_MD_EXCLUDES,
+ 			includeGitInstructions: false,
++			// A Pi section that sets the reply language must not be outranked by the user's
++			// Claude Code `language`, which CC places after the appended Pi prompt.
++			...(sectionsClearLanguage(promptCapture) ? { language: "" } : {}),
+ 		},
+ 		systemPrompt: {
+ 			type: "preset", preset: "claude_code",

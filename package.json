@@ -23,6 +23,7 @@
     "extensions",
     "scripts",
     "launchd",
+    "patches",
     "README.md",
     "LICENSE",
     "NOTICE"

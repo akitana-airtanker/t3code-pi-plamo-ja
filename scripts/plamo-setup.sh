@@ -15,9 +15,12 @@ while (($#)); do
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
+# Pinned revisions: the file on main changes whenever upstream updates the embedded chat template,
+# so a main URL stops matching the checksum. The extension sends its own PFML3 prompt and does not
+# use the chat template.
 case "$MODEL" in
-  0.8b) FILE=plamo-3-translate-0.8b-Q4_K_M.gguf; URL="https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF/resolve/main/$FILE"; SHA="73a1d942d8ab1e654d83898d997b8b4808c32ba669b378df612230989d18f079" ;;
-  2b) FILE=plamo-3-translate-2b-Q4_K_M.gguf; URL="https://huggingface.co/pfnet/plamo-3-translate-2b-GGUF/resolve/main/$FILE"; SHA="2189a8a0b4b359f59443ec36cfb9c9c3f603a678c00dbcee8598b3f7ea7c12fb" ;;
+  0.8b) FILE=plamo-3-translate-0.8b-Q4_K_M.gguf; URL="https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF/resolve/0c4af2b003fdd94b6868aa955414c1c86ee96997/$FILE"; SHA="73a1d942d8ab1e654d83898d997b8b4808c32ba669b378df612230989d18f079" ;;
+  2b) FILE=plamo-3-translate-2b-Q4_K_M.gguf; URL="https://huggingface.co/pfnet/plamo-3-translate-2b-GGUF/resolve/d44589ecd5287cd64452e9cd1e2cfdad904fe216/$FILE"; SHA="2189a8a0b4b359f59443ec36cfb9c9c3f603a678c00dbcee8598b3f7ea7c12fb" ;;
   *) echo '--model must be 0.8b or 2b' >&2; exit 2 ;;
 esac
 URL="${PLAMO_MODEL_URL:-$URL}"
@@ -66,8 +69,9 @@ launchctl bootout "gui/$(id -u)/$LABEL" >/dev/null 2>&1 || true
 launchctl bootstrap "gui/$(id -u)" "$PLIST_DST"
 echo "launchd service started: $LABEL"
 HEALTH="http://127.0.0.1:$PORT/health"
-for _ in $(seq 1 60); do curl -fsS --max-time 2 "$HEALTH" >/dev/null && break; sleep 1; done
-curl -fsS --max-time 2 "$HEALTH" >/dev/null || { echo "llama-server did not become ready; see $LOG_PATH" >&2; exit 1; }
+# The first start loads the model and takes about 70 seconds; later starts take under 10 seconds.
+for _ in $(seq 1 180); do curl -fsS --max-time 2 "$HEALTH" >/dev/null && break; sleep 1; done
+curl -fsS --max-time 2 "$HEALTH" >/dev/null || { echo "llama-server did not become ready within 180 seconds; see $LOG_PATH" >&2; exit 1; }
 prompt='<|plamo:tag|>dataset<|plamo:msg|>translation<|plamo:tag|>input<|plamo:key|>lang<|plamo:val|>en<|plamo:msg|>Hello, world.<|plamo:tag|>output<|plamo:key|>lang<|plamo:val|>ja<|plamo:key|>form<|plamo:val|>polite<|plamo:msg|>'
 body="$(python3 -I -c 'import json,sys; print(json.dumps({"prompt":sys.argv[1],"temperature":0,"max_tokens":64,"stop":["<|plamo:tag|>","<|plamo:bos|>"]}))' "$prompt")"
 translated="$(curl -fsS --max-time 30 -H 'content-type: application/json' -d "$body" "http://127.0.0.1:$PORT/v1/completions" | python3 -I -c 'import json,sys; print(json.load(sys.stdin)["choices"][0]["text"].strip())')" || { echo 'translation smoke test failed' >&2; exit 1; }

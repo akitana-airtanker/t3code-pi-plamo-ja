@@ -23,7 +23,7 @@ pi install git:github.com/akitana-airtanker/t3code-pi-plamo-ja
 bash ~/.pi/agent/git/github.com/akitana-airtanker/t3code-pi-plamo-ja/scripts/plamo-setup.sh --model 0.8b
 ```
 
-setup は llama.cpp/モデルを準備し、macOS では LaunchAgent を登録します。Pi の設定ファイルは変更しません。Pi の再起動後に `/plamo on` を実行してください。モデルの配布は行いません。HF からダウンロードし SHA-256 を検証します。
+setup は llama.cpp/モデルを準備し、macOS では LaunchAgent を登録します。Pi の設定ファイルは変更しません。Pi の再起動後に `/plamo on` を実行してください。モデルの配布は行いません。HF から、SHA-256 を確かめたリビジョンに固定してダウンロードし、SHA-256 を検証します。初回の起動はモデルの読み込みに 70 秒ほどかかるので、setup は最大 180 秒待ちます。
 
 Pi が git パッケージを保存する場所は環境や Pi の版で異なる場合があります。`pi list` で実際の保存先を確認し、そこにある `scripts/plamo-setup.sh` を実行してください。
 
@@ -55,10 +55,10 @@ bash /path/to/t3code-pi-plamo-ja/scripts/plamo-setup.sh --check --model 2b
 ## 制限
 
 - T3 Code の表示は、Pi の `text_end` イベントをその場で書き換える文書化されていない挙動に依存します。Pi や中継側の更新で表示されなくなる可能性があります。
-- 確認した組み合わせは、Pi 1.4.0 と 1.5.0、pi-claude-bridge 0.9.3（Claude の呼び出し）、T3 Code (Beta) 0.1.7 です。表示は T3 Code の画面と、T3 Code と同じ RPC の出力で確かめました。
+- 確認した組み合わせは、Pi 1.4.0 と 1.5.0、pi-claude-bridge 0.9.3（Claude の呼び出し）、T3 Code (Beta) 0.1.7 です。表示は T3 Code の画面と、T3 Code と同じ RPC の出力で確かめました。pi-claude-bridge 0.11.0 では、`pi -p --mode json` の出力でだけ確かめました。
 - pi-claude-bridge 以外では、`openai-codex/gpt-6.1-terra` と `google/gemini-4-argon` が英語で返答し、訳文が `text_end` に入ることを `pi -p --mode json` の出力で確かめました。この2つを T3 Code の画面では確かめていません。Pi 自身のターミナル画面（TUI）も確かめていません。
 - モデルが英語で答えることは保証できません。日本語で書かれたと判定した段落と質問の項目は訳さず、その数を通知で示します。判定は大まかなので、取り違えることがあります。
-- 英語で答えるよう促す一文と pi-claude-bridge のパッチの効果は、日本語で7往復する会話を数回試しただけで、効果の大きさは確かめていません。試した範囲では、促す一文を足す前は Claude（パッチなし）で 17 回答中 2、`gpt-6.1-terra` で 14 回答中 3 が日本語で返り、足したあとは 3 つのモデルで日本語の返答はありませんでした。
+- 英語で答えるよう促す一文の効果は、日本語で7往復する会話を数回試しただけで、効果の大きさは確かめていません。試した範囲では、促す一文を足す前は Claude で 17 回答中 2、`gpt-6.1-terra` で 14 回答中 3 が日本語で返りました。足したあとは、Claude（pi-claude-bridge 0.11.0）で 14 回答、`gpt-6.1-terra` で 25 回答、`gemini-4-argon` で 7 回答のすべてが英語でした。
 - 0.8B は誤訳があります。機械翻訳なので重要な判断には使わないでください。翻訳品質の優位性は主張しません（評価は別途進行中）。
 - コードブロックのあいだの文は、まず 1 回の依頼でまとめて訳します（文脈を保つため）。制限時間を超えるか失敗したときは、段落ごと（600 字を超える段落は行ごと）に分けて 4 件ずつ訳し直します。それでも訳せなかった部分だけ英語のまま表示します。
 - 翻訳が終わるまで、Pi は次の処理を待ちます。長い応答やサーバが混んでいるときは、表示までに時間がかかります。サーバが止まっているときは英語のまま表示します。
@@ -67,19 +67,7 @@ bash /path/to/t3code-pi-plamo-ja/scripts/plamo-setup.sh --check --model 2b
 
 pi-claude-bridge で Claude を使い、`~/.claude/settings.json` に `"language": "日本語"` のような設定があると、Claude Code は Pi の指示のあとに「Always respond in 日本語」という指示を足します。この指示は英語で答える指示と衝突するため、日本語で返答することがあります。
 
-`patches/pi-claude-bridge-clear-language.patch` は、pi-claude-bridge 0.9.3 に `provider.clearLanguageForSections` という設定を足す変更です。指定したセクションが Pi のプロンプト（サブエージェントが引き継いだ親のプロンプトを含む）にあるあいだだけ、Claude を呼ぶときに Claude Code へ `language: ""` を渡して、この指示を外します。`/plamo off` のスレッド、AskClaude ツール、他の Claude Code のセッションは、これまでどおり `~/.claude/settings.json` の言語に従います。確かめたのは、この指示が外れることだけです。空の `language` が Claude Code のほかの動作に影響しないかは確かめていません。
-
-```sh
-patch -d ~/.pi/agent/npm/node_modules/pi-claude-bridge -p1 < patches/pi-claude-bridge-clear-language.patch
-```
-
-`~/.pi/agent/claude-bridge.json` に次を足し、Pi を再起動します。pi-claude-bridge を入れ直すと変更は消えるので、もう一度当ててください。
-
-```json
-{ "provider": { "clearLanguageForSections": ["reply_language"] } }
-```
-
-パッチを当てなくても、この拡張は動きます。その場合は、日本語で返ってくる返答が増えることがあります。
+この拡張はユーザーメッセージごとに英語で答えるよう促す一文を足すので、試した範囲では、この設定があっても Claude は英語で返答しました。それでも日本語で返答した場合は、通知と警告で分かります。`language` を外すとこの指示は付かなくなりますが、Claude Code のほかのセッションの言語も変わります。
 
 ## 謝辞
 

@@ -27,4 +27,7 @@ run --model 2b >/dev/null || fail '2B model selection failed'
 sed -e 's|__LLAMA_SERVER__|/usr/bin/llama-server|g' -e 's|__MODEL_PATH__|/tmp/model.gguf|g' -e 's|__LOG_PATH__|/tmp/plamo.log|g' "$root/launchd/io.github.akitana-airtanker.t3code-pi-plamo-ja.plist" > "$tmp/rendered.plist"
 plutil -lint "$tmp/rendered.plist" >/dev/null || fail 'rendered plist is invalid'
 ! rg -q '/Users/[^/]+|dotfiles' "$root/launchd/io.github.akitana-airtanker.t3code-pi-plamo-ja.plist" || fail 'plist has a personal path'
+# A model URL on main stops matching the pinned checksum when upstream updates the file.
+[ "$(rg -c 'huggingface\.co/pfnet/[^/]+/resolve/[0-9a-f]{40}/' "$root/scripts/plamo-setup.sh")" = 2 ] || fail 'model URLs must be pinned to a commit'
+! rg -q 'resolve/main/' "$root/scripts/plamo-setup.sh" || fail 'a model URL points at main'
 printf 'ok\n'
